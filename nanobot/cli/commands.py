@@ -9,6 +9,7 @@ import select
 import sys
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -16,6 +17,10 @@ from rich.table import Table
 from rich.text import Text
 
 from nanobot import __version__, __logo__
+
+# Load .env file from ~/.nanobot/ or current directory
+load_dotenv(Path.home() / ".nanobot" / ".env")
+load_dotenv()  # Also check current directory
 
 app = typer.Typer(
     name="nanobot",
