@@ -19,6 +19,7 @@ from telegram.request import HTTPXRequest
 from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
+from nanobot.channels.telegram_pairing import PairingManager
 from nanobot.config.paths import get_media_dir
 from nanobot.config.schema import Base
 from nanobot.security.network import validate_url_target
@@ -220,6 +221,7 @@ class TelegramChannel(BaseChannel):
         self._bot_user_id: int | None = None
         self._bot_username: str | None = None
         self._stream_bufs: dict[str, _StreamBuf] = {}  # chat_id -> streaming state
+        self._pairing = PairingManager()
 
     def is_allowed(self, sender_id: str) -> bool:
         """Preserve Telegram's legacy id|username allowlist matching."""
@@ -239,6 +241,7 @@ class TelegramChannel(BaseChannel):
             return False
 
         return sid in allow_list or username in allow_list
+
 
     async def start(self) -> None:
         """Start the Telegram bot with long polling."""
@@ -540,13 +543,29 @@ class TelegramChannel(BaseChannel):
                 pass
 
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /start command."""
+        """Handle /start command with pairing support."""
         if not update.message or not update.effective_user:
             return
 
         user = update.effective_user
+        token_arg = context.args[0] if context.args else None
+
+        async def reply(text: str) -> None:
+            await update.message.reply_text(text)
+
+        handled = await self._pairing.handle_start_command(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            token_arg=token_arg,
+            reply_func=reply,
+        )
+
+        if handled:
+            return
+
         await update.message.reply_text(
-            f"👋 Hi {user.first_name}! I'm nanobot.\n\n"
+            f"Hi {user.first_name}! I'm nanobot.\n\n"
             "Send me a message and I'll respond!\n"
             "Type /help to see available commands."
         )
@@ -755,8 +774,13 @@ class TelegramChannel(BaseChannel):
         message = update.message
         user = update.effective_user
         chat_id = message.chat_id
+        if not self._pairing.should_accept_message(user.id):
+            logger.debug(f"Message rejected from unauthorized user: {user.id}")
+            return
+
         sender_id = self._sender_id(user)
         self._remember_thread_context(message)
+
 
         # Store chat_id for replies
         self._chat_ids[sender_id] = chat_id
