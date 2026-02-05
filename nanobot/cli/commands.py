@@ -22,6 +22,7 @@ if sys.platform == "win32":
             pass
 
 import typer
+from dotenv import load_dotenv
 from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.application import run_in_terminal
 from prompt_toolkit.formatted_text import ANSI, HTML
@@ -37,6 +38,10 @@ from nanobot.cli.stream import StreamRenderer, ThinkingSpinner
 from nanobot.config.paths import get_workspace_path, is_default_workspace
 from nanobot.config.schema import Config
 from nanobot.utils.helpers import sync_workspace_templates
+
+# Load .env file from ~/.nanobot/ or current directory
+load_dotenv(Path.home() / ".nanobot" / ".env")
+load_dotenv()  # Also check current directory
 
 app = typer.Typer(
     name="nanobot",
