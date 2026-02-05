@@ -18,6 +18,8 @@ class TelegramConfig(BaseModel):
     token: str = ""  # Bot token from @BotFather
     allow_from: list[str] = Field(default_factory=list)  # Allowed user IDs or usernames
     proxy: str | None = None  # HTTP/SOCKS5 proxy URL, e.g. "http://127.0.0.1:7890" or "socks5://127.0.0.1:1080"
+    paired: bool = False  # Whether bot is paired with a user
+    paired_at: str | None = None  # ISO timestamp of pairing
 
 
 class FeishuConfig(BaseModel):

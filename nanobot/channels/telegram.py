@@ -13,6 +13,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
+from nanobot.channels.telegram_pairing import PairingManager
 from nanobot.config.schema import TelegramConfig
 
 if TYPE_CHECKING:
@@ -112,6 +113,7 @@ class TelegramChannel(BaseChannel):
         self._app: Application | None = None
         self._chat_ids: dict[str, int] = {}  # Map sender_id to chat_id for replies
         self._typing_tasks: dict[str, asyncio.Task] = {}  # chat_id -> typing loop task
+        self._pairing = PairingManager()
     
     async def start(self) -> None:
         """Start the Telegram bot with long polling."""
@@ -215,13 +217,29 @@ class TelegramChannel(BaseChannel):
                 logger.error(f"Error sending Telegram message: {e2}")
     
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /start command."""
+        """Handle /start command with pairing support."""
         if not update.message or not update.effective_user:
             return
-        
+
         user = update.effective_user
+        token_arg = context.args[0] if context.args else None
+
+        async def reply(text: str) -> None:
+            await update.message.reply_text(text)
+
+        handled = await self._pairing.handle_start_command(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            token_arg=token_arg,
+            reply_func=reply,
+        )
+
+        if handled:
+            return
+
         await update.message.reply_text(
-            f"👋 Hi {user.first_name}! I'm nanobot.\n\n"
+            f"Hi {user.first_name}! I'm nanobot.\n\n"
             "Send me a message and I'll respond!\n"
             "Type /help to see available commands."
         )
@@ -265,10 +283,14 @@ class TelegramChannel(BaseChannel):
         """Handle incoming messages (text, photos, voice, documents)."""
         if not update.message or not update.effective_user:
             return
-        
+
         message = update.message
         user = update.effective_user
         chat_id = message.chat_id
+
+        if not self._pairing.should_accept_message(user.id):
+            logger.debug(f"Message rejected from unauthorized user: {user.id}")
+            return
         
         # Use stable numeric ID, but keep username for allowlist compatibility
         sender_id = str(user.id)
