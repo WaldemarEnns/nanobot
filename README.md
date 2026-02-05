@@ -204,6 +204,29 @@ Talk to your nanobot through Telegram, WhatsApp, or Feishu — anytime, anywhere
 nanobot gateway
 ```
 
+#### Telegram Pairing Flow (Optional)
+
+For deploying bots to end users, you can use a secure pairing flow with one-time tokens instead of pre-configuring `allowFrom`.
+
+**1. Set environment variables** (or use `~/.nanobot/.env`)
+
+```bash
+NANOBOT_PAIRING_TOKEN=your-secret-token
+NANOBOT_PAIRING_WEBHOOK_URL=https://your-server.com/pairing-callback
+NANOBOT_BOT_ID=unique-bot-identifier
+```
+
+**2. Share pairing link with user**
+
+```
+https://t.me/YOUR_BOT?start=your-secret-token
+```
+
+**3. On successful pairing:**
+- User's Telegram ID is added to `allowFrom`
+- Webhook receives POST with `{ bot_id, telegram_user_id, telegram_username, paired_at }`
+- Config is updated with `paired: true`
+
 </details>
 
 <details>
@@ -295,6 +318,20 @@ nanobot gateway
 ## ⚙️ Configuration
 
 Config file: `~/.nanobot/config.json`
+
+### Environment Variables
+
+nanobot automatically loads environment variables from `.env` files:
+
+1. `~/.nanobot/.env` (user config, loaded first)
+2. `./.env` (current directory, fallback)
+
+```bash
+# Example ~/.nanobot/.env
+NANOBOT_PAIRING_TOKEN=secret-token
+NANOBOT_PAIRING_WEBHOOK_URL=https://example.com/webhook
+NANOBOT_BOT_ID=my-bot-001
+```
 
 ### Providers
 
