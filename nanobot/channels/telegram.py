@@ -359,7 +359,7 @@ class TelegramChannel(BaseChannel):
         return path.startswith(("http://", "https://"))
 
     async def send(self, msg: OutboundMessage) -> None:
-        """Send a message through Telegram."""
+        """Send a message through Telegram, splitting long messages into chunks."""
         if not self._app:
             logger.warning("Telegram bot not running")
             return
@@ -541,6 +541,7 @@ class TelegramChannel(BaseChannel):
                 buf.last_edit = now
             except Exception:
                 pass
+
 
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command with pairing support."""
