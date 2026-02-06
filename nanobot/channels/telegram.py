@@ -152,33 +152,62 @@ class TelegramChannel(BaseChannel):
             self._app = None
     
     async def send(self, msg: OutboundMessage) -> None:
-        """Send a message through Telegram."""
+        """Send a message through Telegram, splitting long messages into chunks."""
         if not self._app:
             logger.warning("Telegram bot not running")
             return
-        
+
         try:
-            # chat_id should be the Telegram chat ID (integer)
             chat_id = int(msg.chat_id)
-            # Convert markdown to Telegram HTML
-            html_content = _markdown_to_telegram_html(msg.content)
-            await self._app.bot.send_message(
-                chat_id=chat_id,
-                text=html_content,
-                parse_mode="HTML"
-            )
         except ValueError:
             logger.error(f"Invalid chat_id: {msg.chat_id}")
-        except Exception as e:
-            # Fallback to plain text if HTML parsing fails
-            logger.warning(f"HTML parse failed, falling back to plain text: {e}")
+            return
+
+        for chunk in self._split_message(msg.content):
             try:
+                html_content = _markdown_to_telegram_html(chunk)
                 await self._app.bot.send_message(
-                    chat_id=int(msg.chat_id),
-                    text=msg.content
+                    chat_id=chat_id,
+                    text=html_content,
+                    parse_mode="HTML"
                 )
-            except Exception as e2:
-                logger.error(f"Error sending Telegram message: {e2}")
+            except Exception:
+                try:
+                    await self._app.bot.send_message(
+                        chat_id=chat_id,
+                        text=chunk
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending Telegram message chunk: {e}")
+
+    @staticmethod
+    def _split_message(text: str, max_len: int = 4096) -> list[str]:
+        """Split text into chunks that fit Telegram's message limit."""
+        if len(text) <= max_len:
+            return [text]
+
+        chunks = []
+        while text:
+            if len(text) <= max_len:
+                chunks.append(text)
+                break
+
+            # Try to split at a double newline (paragraph boundary)
+            split_at = text.rfind("\n\n", 0, max_len)
+            if split_at == -1:
+                # Try single newline
+                split_at = text.rfind("\n", 0, max_len)
+            if split_at == -1:
+                # Try space
+                split_at = text.rfind(" ", 0, max_len)
+            if split_at == -1:
+                # Hard cut
+                split_at = max_len
+
+            chunks.append(text[:split_at])
+            text = text[split_at:].lstrip("\n")
+
+        return chunks
     
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
