@@ -219,12 +219,12 @@ class WebFetchTool(Tool):
     """Fetch and extract content from a URL."""
 
     name = "web_fetch"
-    description = "Fetch URL and extract readable content (HTML → markdown/text)."
+    description = "Fetch URL and extract readable content (HTML → markdown/text). Use extractMode 'raw' to get full page content without Readability filtering."
     parameters = {
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "URL to fetch"},
-            "extractMode": {"type": "string", "enum": ["markdown", "text"], "default": "markdown"},
+            "extractMode": {"type": "string", "enum": ["markdown", "text", "raw"], "default": "markdown"},
             "maxChars": {"type": "integer", "minimum": 100},
         },
         "required": ["url"],
@@ -234,7 +234,7 @@ class WebFetchTool(Tool):
         self.max_chars = max_chars
         self.proxy = proxy
 
-    async def execute(self, url: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any) -> Any:
+    async def execute(self, url: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any) -> str:
         max_chars = maxChars or self.max_chars
         is_valid, error_msg = _validate_url_safe(url)
         if not is_valid:
@@ -325,10 +325,14 @@ class WebFetchTool(Tool):
             if "application/json" in ctype:
                 text, extractor = json.dumps(r.json(), indent=2, ensure_ascii=False), "json"
             elif "text/html" in ctype or r.text[:256].lower().startswith(("<!doctype", "<html")):
-                doc = Document(r.text)
-                content = self._to_markdown(doc.summary()) if extract_mode == "markdown" else _strip_tags(doc.summary())
-                text = f"# {doc.title()}\n\n{content}" if doc.title() else content
-                extractor = "readability"
+                if extractMode == "raw":
+                    text = self._to_markdown(r.text)
+                    extractor = "raw"
+                else:
+                    doc = Document(r.text)
+                    content = self._to_markdown(doc.summary()) if extractMode == "markdown" else _strip_tags(doc.summary())
+                    text = f"# {doc.title()}\n\n{content}" if doc.title() else content
+                    extractor = "readability"
             else:
                 text, extractor = r.text, "raw"
 
