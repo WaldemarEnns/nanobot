@@ -128,10 +128,10 @@ class LiteLLMProvider(LLMProvider):
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
-        
+
         # Apply model-specific overrides (e.g. kimi-k2.5 temperature)
         self._apply_model_overrides(model, kwargs)
-        
+
         # Pass api_base for custom endpoints
         if self.api_base:
             kwargs["api_base"] = self.api_base
@@ -185,7 +185,7 @@ class LiteLLMProvider(LLMProvider):
             }
         
         reasoning_content = getattr(message, "reasoning_content", None)
-        
+
         return LLMResponse(
             content=message.content,
             tool_calls=tool_calls,
