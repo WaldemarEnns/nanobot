@@ -102,12 +102,17 @@ class LiteLLMProvider(LLMProvider):
         """
         model = model or self.default_model
         
+        # Moonshot/Kimi: route as OpenAI-compatible with bare model name
+        # e.g. "moonshot/kimi-k2.5" -> "openai/kimi-k2.5"
+        if self.is_moonshot and not model.startswith("openrouter/"):
+            model = model.split("/")[-1]
+            model = f"openai/{model}"
+
         # Auto-prefix model names for known providers
         # (keywords, target_prefix, skip_if_starts_with)
         _prefix_rules = [
             (("glm", "zhipu"), "zai", ("zhipu/", "zai/", "openrouter/", "hosted_vllm/")),
             (("qwen", "dashscope"), "dashscope", ("dashscope/", "openrouter/")),
-            (("moonshot", "kimi"), "openai", ("openai/", "openrouter/")),
             (("gemini",), "gemini", ("gemini/",)),
         ]
         model_lower = model.lower()
