@@ -37,8 +37,11 @@ class LiteLLMProvider(LLMProvider):
         # Detect AiHubMix by api_base
         self.is_aihubmix = bool(api_base and "aihubmix" in api_base)
         
+        # Detect Moonshot/Kimi by model name
+        self.is_moonshot = "moonshot" in default_model.lower() or "kimi" in default_model.lower()
+
         # Track if using custom endpoint (vLLM, etc.)
-        self.is_vllm = bool(api_base) and not self.is_openrouter and not self.is_aihubmix
+        self.is_vllm = bool(api_base) and not self.is_openrouter and not self.is_aihubmix and not self.is_moonshot
         
         # Configure LiteLLM based on provider
         if api_key:
@@ -68,7 +71,7 @@ class LiteLLMProvider(LLMProvider):
                 os.environ.setdefault("GROQ_API_KEY", api_key)
             elif "moonshot" in default_model or "kimi" in default_model:
                 os.environ.setdefault("MOONSHOT_API_KEY", api_key)
-                os.environ.setdefault("MOONSHOT_API_BASE", api_base or "https://api.moonshot.cn/v1")
+                os.environ.setdefault("MOONSHOT_API_BASE", api_base or "https://api.moonshot.ai/v1")
         
         if api_base:
             litellm.api_base = api_base
@@ -104,7 +107,7 @@ class LiteLLMProvider(LLMProvider):
         _prefix_rules = [
             (("glm", "zhipu"), "zai", ("zhipu/", "zai/", "openrouter/", "hosted_vllm/")),
             (("qwen", "dashscope"), "dashscope", ("dashscope/", "openrouter/")),
-            (("moonshot", "kimi"), "moonshot", ("moonshot/", "openrouter/")),
+            (("moonshot", "kimi"), "openai", ("openai/", "openrouter/")),
             (("gemini",), "gemini", ("gemini/",)),
         ]
         model_lower = model.lower()
@@ -131,8 +134,12 @@ class LiteLLMProvider(LLMProvider):
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
-        
-        # Pass api_base directly for custom endpoints (vLLM, etc.)
+
+        # Pass api_key directly so litellm doesn't rely on env vars
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+
+        # Pass api_base directly for custom endpoints (vLLM, moonshot, etc.)
         if self.api_base:
             kwargs["api_base"] = self.api_base
         
@@ -185,11 +192,14 @@ class LiteLLMProvider(LLMProvider):
                 "total_tokens": response.usage.total_tokens,
             }
         
+        reasoning_content = getattr(message, "reasoning_content", None)
+
         return LLMResponse(
             content=message.content,
             tool_calls=tool_calls,
             finish_reason=choice.finish_reason or "stop",
             usage=usage,
+            reasoning_content=reasoning_content,
         )
     
     def get_default_model(self) -> str:

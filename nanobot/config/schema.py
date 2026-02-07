@@ -128,7 +128,11 @@ class Config(BaseSettings):
         return Path(self.agents.defaults.workspace).expanduser()
     
     # Default base URLs for API gateways
-    _GATEWAY_DEFAULTS = {"openrouter": "https://openrouter.ai/api/v1", "aihubmix": "https://aihubmix.com/v1"}
+    _GATEWAY_DEFAULTS = {
+        "openrouter": "https://openrouter.ai/api/v1",
+        "aihubmix": "https://aihubmix.com/v1",
+        "moonshot": "https://api.moonshot.ai/v1",
+    }
 
     def get_provider(self, model: str | None = None) -> ProviderConfig | None:
         """Get matched provider config (api_key, api_base, extra_headers). Falls back to first available."""
